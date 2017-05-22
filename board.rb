@@ -1,14 +1,15 @@
 require 'byebug'
+require 'colorize'
 
 class Board
-    attr_accessor :grid
+    attr_accessor :grid, :color
     
     def self.default_grid
         Array.new(10) {Array.new(10)}
     end
     
     def initialize(grid = Board.default_grid)
-       @grid = grid 
+       @grid = grid
     end
     
     def [](pos)
@@ -33,6 +34,18 @@ class Board
         return self.send(:hash_of_positions_and_state).values.all? {|pos| pos == :s}
     end
     
+    def spot_taken?(coordinates)
+        return false if coordinates.empty?
+        coordinates.each do |coordinate|
+            if grid[coordinate[0]][coordinate[1]] == :s
+                puts "ERROR: LOCATION TAKEN!"
+                sleep(1)
+                return true
+            end
+        end
+        false
+    end
+    
     def place_ship(pos)
       @grid[pos[0]][pos[1]] = :s
     end
@@ -49,27 +62,45 @@ class Board
         end
     end
     
+    def coordinates_in_range?(coordinates)
+        coordinates.each do |coordinate|
+            if !(in_range?(coordinate))
+                puts "ERROR: COORDINATE(S) NOT IN RANGE!"
+                sleep(1)
+                return false 
+            end
+        end
+        return true
+    end
+    
     def in_range?(pos)
-        return false if pos[0] >= @grid.length || pos[1] >= @grid[0].length
+        return false if pos[0] >= @grid.length || pos[0] < 0 || pos[1] >= @grid[0].length || pos[1] < 0
         true
     end
-    
-    def won?
-        hash_of_positions_and_state.values.all? {|state| state != :s}
-    end
-    alias :no_ships? :won?
-    
-    def display
-        hidden_ships_grid = map_grid {|state| state == :s ? nil : state}
+
+    def display(hidden)
+        if hidden
+            grid_to_display = map_grid {|state| state == :s ? nil : state}
+        else
+            grid_to_display = @grid
+        end
 
         # print top column labels
         print_column_labels
         
         # print rows
-        hidden_ships_grid.each_with_index do |row, row_num|
+        grid_to_display.each_with_index do |row, row_num|
             puts ""
             print "#{row_num} "
-            row.each {|el| print el ? "[#{el}]" : "[ ]"}
+            row.each do |el| 
+                if el == :x
+                    print "[#{el}]"
+                elsif el
+                    print "[#{el}]".send(@color)
+                else
+                    print "[ ]"
+                end
+            end
             print " #{row_num}"
         end
         
@@ -79,7 +110,39 @@ class Board
         puts ""
     end
     
-    private
+    
+    
+    
+    def coordinates_in_between(first_coordinate,second_coordinate)
+        coordinates = []
+    
+        if first_coordinate[0] != second_coordinate[0] && first_coordinate[1] != second_coordinate[1]
+            puts "ERROR: COORDINATES MUST BE IN A LINE!"
+            sleep(2)
+            return false
+        end
+    
+        # determine which axis (x or y) is in common between the coordinates
+        common_axis = first_coordinate[0] == second_coordinate[0] ? 0 : 1
+        common_axis_value = first_coordinate[common_axis]
+        other_axis = (common_axis - 1).abs
+    
+        # for the axis that isn't in common, get the smaller and larger values
+        smaller_value = [first_coordinate[other_axis],second_coordinate[other_axis]].min
+        larger_value = [first_coordinate[other_axis],second_coordinate[other_axis]].max
+    
+        # go through those values and create new coordinates each step of the way
+        smaller_value.upto(larger_value) do |i|
+          if common_axis == 0
+            coordinates << [common_axis_value,i]
+          else
+            coordinates << [i,common_axis_value]
+          end
+        end
+    
+        coordinates
+    end
+    
     
     def hash_of_positions_and_state
         hash = {}
@@ -104,6 +167,5 @@ class Board
         @grid[0].each_index do |col_num|
             print " #{col_num} "
         end
-        print "   "
     end
 end
